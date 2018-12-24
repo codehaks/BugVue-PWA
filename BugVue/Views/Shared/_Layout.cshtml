@@ -1,0 +1,23 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - BugVue 1.0</title>
+    <link href="~/lib/twitter-bootstrap/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="~/lib/twitter-bootstrap/css/bootstrap-theme.min.css" rel="stylesheet" />
+    <link href="~/lib/toastr.js/toastr.css" rel="stylesheet" />
+</head>
+<body>
+
+
+    <div class="container body-content">
+        @RenderBody()
+    </div>
+
+    <script src="~/lib/jquery/jquery.min.js"></script>
+    <script src="~/lib/twitter-bootstrap/js/bootstrap.min.js"></script>
+    <script src="~/lib/toastr.js/toastr.min.js"></script>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

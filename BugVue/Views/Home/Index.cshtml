@@ -1,0 +1,240 @@
+﻿@{
+    ViewData["Title"] = "VueBug Demo";
+}
+
+<div id="app">
+    <h2>BugVue 1.0</h2>
+    <hr />
+
+    <a href="#" class="btn btn-success" v-on:click="showModal"> New ...</a>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tr v-for="(bug,index) in bugs">
+            <td>{{index+1}}</td>
+            <td>{{bug.name}}</td>
+            <td>{{bug.description}}</td>
+            <td>
+                <a href="#" class="btn btn-danger" v-on:click="removeBug(bug,index)">Remove</a>
+                <a href="#" class="btn btn-primary" v-on:click="editBug(bug,index)">Edit</a>
+            </td>
+        </tr>
+    </table>
+    <partial name="_modals" />
+    
+</div>
+@section Scripts{
+    <script>
+        window.addEventListener('load', () => {
+            if (!('serviceWorker' in navigator)) {
+                // service workers not supported 😣
+                return
+            }
+
+            navigator.serviceWorker.register('/worker.js').then(
+                () => {
+                    // registered! 👍🏼
+                },
+                err => {
+                    console.error('SW registration failed! 😱', err)
+                }
+            )
+        })
+
+        window.addEventListener('load', function () {
+            function updateOnlineStatus(event) {
+                if (navigator.onLine) {
+                    console.log("on-line");
+                    toastr.success("Connected");
+
+                    localforage.config({
+                        driver: localforage.WEBSQL, 
+                        name: 'myApp',
+                        version: 1.0,
+                        size: 1000, 
+                        storeName: 'BugVue-db', 
+                        description: 'BugVue-PWA'
+                    });
+
+                    localforage.iterate(function (value, key, iterationNumber) {
+                        // Resulting key/value pair -- this callback
+                        // will be executed for every item in the
+                        // database.
+                        console.log([key, value]);
+
+                        var newBug = {
+                            name: key,
+                            description: value
+                        }
+
+                        $.ajax({ url: "/bug", data: newBug, method: "POST" })
+                            .done(function (data) {
+                                //vm.bugs.splice(0, 0, newBug);
+                                toastr.success("New bug added.");
+                            }).fail(function () {
+                                toastr.error("Can not add new bug!");
+                            }).always(function () {
+                                //vm.clearData();
+                            });
+
+                    }).then(function () {
+                        console.log('Iteration has completed');
+                    }).catch(function (err) {
+                        // This code runs if there were any errors
+                        console.log(err);
+                    });
+
+
+
+                } else {
+                    toastr.warning("Disconnected");
+                }
+            }
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+        });
+    </script>
+
+    <script src="~/lib/vue/vue.min.js"></script>
+    <script src="~/lib/localforage/localforage.js"></script>
+    <script>
+        var app = new Vue({
+            el: "#app",
+            data: {
+                bugs: [],
+                name: "",
+                description: "",
+                editItemIndex: null,
+                editItemId: null
+
+            },
+            created: function () {
+                this.getBugs();
+
+                localforage.config({
+                    driver: localforage.WEBSQL, 
+                    name: 'myApp',
+                    version: 1.0,
+                    size:1000, 
+                    storeName: 'keyvaluepairs', 
+                    description: 'BugVue-PWA'
+                });
+
+            },
+            methods: {
+                clearData: function () {
+                    var vm = this;
+
+                    vm.name = "";
+                    vm.description = "";
+                    vm.editItemIndex = null;
+                    vm.editItemId = null;
+                },
+
+                editBug: function (item, index) {
+
+                    this.name = item.name;
+                    this.description = item.description;
+                    editItemIndex = index;
+                    editItemId = item.id;
+                    $('#editBugModal').modal('show');
+                },
+
+                editBugConfirm: function (item) {
+                    var vm = this;
+
+                    var newBug = {
+                        id: editItemId,
+                        name: vm.name,
+                        description: vm.description
+                    }
+
+                    $.ajax({ url: "/bug", data: newBug, method: "PUT" })
+                        .done(function () {
+                            vm.bugs[editItemIndex].name = vm.name;
+                            vm.bugs[editItemIndex].description = vm.description;
+                            toastr.success("Bug updated.");
+                        }).fail(function () {
+                            toastr.error("Can not update this bug.");
+                        }).always(function () {
+                            vm.clearData();
+                        });
+
+                    $('#editBugModal').modal('hide');
+                },
+                removeBug: function (item, index) {
+                    var vm = this;
+
+                    var bugToDelete = {
+                        id: item.id
+                    }
+
+                    $.ajax({ url: "/bug", data: bugToDelete, method: "DELETE" })
+                        .done(function (data) {
+                            vm.bugs.splice(index, 1);
+                            toastr.success("Bug removed");
+                        }).fail(function () {
+                            toastr.error("Can not remove this bug!");
+                        });
+                },
+
+                addBug: function () {
+
+                    var vm = this;
+
+                    var newBug = {
+                        name: vm.name,
+                        description: vm.description
+                    }
+
+                    var isOnline = navigator.onLine;
+
+                    if (isOnline==false) {
+
+                        localforage.setItem(vm.name, vm.description).then(function () {
+                            vm.bugs.splice(0, 0, newBug);
+                            toastr.success("New bug added.");
+                            $('#newBugModal').modal('hide');
+
+                        })
+
+                        return;
+                    }
+
+                    $.ajax({ url: "/bug", data: newBug, method: "POST" })
+                        .done(function (data) {
+                            vm.bugs.splice(0, 0, newBug);
+                            toastr.success("New bug added.");
+                        }).fail(function () {
+                            toastr.error("Can not add new bug!");
+                        }).always(function () {
+                            vm.clearData();
+                        });
+
+                    $('#newBugModal').modal('hide');
+
+                },
+                getBugs: function () {
+                    var vm = this;
+                    $.ajax({ url: "/bug", method: "GET" })
+                        .done(function (data) {
+                            vm.bugs = data;
+                            toastr.success("All bugs loaded.");
+                        }).fail(function () {
+                            toastr.error("Can not load bugs!");
+                        });
+                },
+                showModal: function () {
+                    var vm = this;
+                    $('#newBugModal').modal('show');
+                }
+            }
+        });
+    </script>
+}
